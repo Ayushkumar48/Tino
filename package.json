@@ -33,8 +33,10 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"aws-sdk": "^2.1678.0",
+		"@sveltejs/adapter-node": "^5.2.8",
 		"dotenv": "^16.4.5",
+		"socket.io": "^4.8.0",
+		"socket.io-client": "^4.8.0",
 		"ws": "^8.18.0"
 	}
 }
