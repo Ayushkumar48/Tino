@@ -1,16 +1,38 @@
 <script>
 	import { persons } from '$lib/store.js';
-	import { SearchOutline } from 'flowbite-svelte-icons';
+	import { SearchOutline, AdjustmentsHorizontalOutline } from 'flowbite-svelte-icons';
+	import { goto } from '$app/navigation';
+	import { Dropdown, DropdownItem } from 'flowbite-svelte';
+	async function handleSignout() {
+		await fetch('/api/signout', {
+			method: 'POST'
+		});
+		goto('/login');
+	}
 </script>
 
 <div class="gap-4 flex flex-col border-r-2 border-black w-72">
 	<div class="flex justify-center items-center border-b-2 border-black py-2 flex-col gap-3">
-		<div class="flex w-full px-4 flex-row justify-between select-none">
+		<div class="flex w-full pl-4 pr-3 flex-row justify-between select-none">
 			<div class="text-2xl flex justify-center items-center">Chats</div>
-			<button
-				class="hover:bg-[#DBAFA0] rounded-md py-1 px-2 border-zinc-900 border-[2.2px] hover:text-black hover:shadow-sm hover:shadow-[#DBAFA0] duration-[250ms] ease-in-out"
-				>New</button
-			>
+			<div class="flex flex-row gap-2 justify-between items-center">
+				<button
+					class="hover:bg-[#DBAFA0] rounded-md py-1 px-2 border-zinc-900 border-[2.2px] hover:text-black hover:shadow-sm hover:shadow-[#DBAFA0] duration-[250ms] ease-in-out"
+				>
+					New
+				</button>
+				<button
+					class="rounded-full hover:bg-gray-700 p-[0.35rem] duration-150 focus-visible:outline-none focus-visible:border-none"
+				>
+					<AdjustmentsHorizontalOutline />
+					<Dropdown>
+						<DropdownItem class="rounded-t">Dashboard</DropdownItem>
+						<DropdownItem>Settings</DropdownItem>
+						<DropdownItem>Earnings</DropdownItem>
+						<DropdownItem class="rounded-b" on:click={handleSignout}>Sign out</DropdownItem>
+					</Dropdown>
+				</button>
+			</div>
 		</div>
 		<div class="relative px-4">
 			<input

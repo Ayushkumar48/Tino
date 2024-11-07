@@ -26,6 +26,5 @@ export const persons = writable([
 ]);
 
 export const messages = writable([
-	{ message: 'Hello there!', send: true, 'd&t': '10/8:00pm' },
-	{ message: 'Hi, how are you?', send: false, 'd&t': '10/8:02pm' }
+	
 ]);

@@ -4,83 +4,158 @@
 	import { onMount } from 'svelte';
 	import io from 'socket.io-client';
 	import { writable } from 'svelte/store';
-	import { fade } from 'svelte/transition';
 
-	// Store to manage chat messages
-	export let messages = writable([]);
+	// Importing user's data from cookies or session
+	export let data;
+	const { username } = data;
+	console.log(username);
 
-	let newMessage = ''; // The message input field value
-	let socket; // Socket.IO instance
+	export let receiver = 'Jatin'; // Get this from the current chat (passed as a parameter)
 
-	// When the component mounts, connect to the Socket.IO server
+	// Storing messages
+	export let messages = writable([
+		{ message: 'Hello there!', sender: 'Ayushkumar48', 'd&t': '10/02/2024,8:00 pm' },
+		{ message: 'Hi, how are you?', sender: 'jatinsharma4224', 'd&t': '10/02/2024,8:02 pm' }
+	]);
+
+	let newMessage = '';
+	let socket;
+	let chatId = `${username}/*/${receiver}`; // Unique ID for the chat
+
+	// To track who is typing
+	let typingUser = '';
+	let typingTimeout;
+
+	// Socket connection and handling
 	onMount(() => {
-		// Connect to the backend (localhost:3000)
 		socket = io('http://localhost:3000');
 
-		// Log connection status
+		// Join the room based on chatId
 		socket.on('connect', () => {
 			console.log('Connected to Socket.IO server');
+			socket.emit('joinRoom', chatId); // Join a unique room
 		});
 
-		// Listen for incoming messages from the server
+		// Receive message from server
 		socket.on('chatMessage', (message) => {
-			console.log('Message received:', message); // Log the received message
-			messages.update((m) => [...m, { ...message, send: false }]); // Update the message store with received message
+			console.log('Message received:', message);
+			messages.update((m) => [...m, { ...message, send: message.sender !== username }]);
 		});
 
-		// Disconnect the socket when the component unmounts
+		// Receive typing indicator
+		socket.on('typing', (data) => {
+			if (data.sender !== username) {
+				typingUser = `${data.sender} is typing...`;
+			}
+		});
+
+		// Stop typing indicator
+		socket.on('stopTyping', (data) => {
+			if (data.sender !== username) {
+				typingUser = '';
+			}
+		});
+
+		// Handle reconnection
+		socket.on('reconnect', () => {
+			console.log('Reconnected to the server');
+			socket.emit('joinRoom', chatId); // Rejoin the room after reconnecting
+		});
+
 		return () => {
 			socket.disconnect();
 		};
 	});
 
-	// Send a message to the server
+	// Handle typing indicator
+	function handleTyping() {
+		socket.emit('typing', { chatId, sender: username });
+		clearTimeout(typingTimeout);
+		typingTimeout = setTimeout(() => {
+			socket.emit('stopTyping', { chatId, sender: username });
+		}, 2000); // Stop typing after 2 seconds of no input
+	}
+
+	// Send a message
 	function sendMessage() {
 		if (newMessage.trim() !== '') {
+			const date = new Date();
+			const hours = date.getHours();
+			const minutes = date.getMinutes();
+			const day = date.getDate();
+			const month = date.getMonth() + 1; // Month is 0-indexed
+			const year = date.getFullYear();
+			const newformat = hours >= 12 ? 'pm' : 'am';
+			const formattedHours = hours % 12 || 12;
+			const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
+
+			const dateData = `${day}/${month}/${year},${formattedHours}:${formattedMinutes} ${newformat}`;
+
 			const messageData = {
 				message: newMessage,
-				send: true, // Indicates that this message is sent by the current user
-				'd&t': new Date().toLocaleString() // Example timestamp
+				sender: username, // Current user (from cookies)
+				receiver, // The person being chatted with
+				'd&t': dateData,
+				chatId // Unique chat room ID
 			};
 
-			socket.emit('chatMessage', messageData); // Send message to server
-			messages.update((m) => [...m, messageData]); // Update local store with the new message
-			newMessage = ''; // Clear the input field
-			console.log('Sent message:', messageData); // Log the sent message
+			// Emit message to server
+			socket.emit('chatMessage', messageData);
+
+			// Clear typing indicator when message is sent
+			clearTimeout(typingTimeout);
+			socket.emit('stopTyping', { chatId, sender: username });
+
+			// Update UI
+			// messages.update((m) => [...m, { ...messageData, send: true }]);
+			newMessage = '';
 		}
 	}
+
+	// Chat window reference to handle auto-scroll
+	let chatWindow;
+
+	// Scroll to bottom when a new message is added
+	$: chatWindow && (chatWindow.scrollTop = chatWindow.scrollHeight);
 </script>
 
+<!-- Chat Header -->
 <div class="h-full w-full flex justify-between flex-col">
-	<!-- Header Section with the chat participant's name and time -->
 	<div class="h-[7%] border-b-2 border-black flex flex-col px-2 justify-center select-none">
-		<p class="text-lg">Person1</p>
-		<p class="text-sm text-zinc-400">Time: 8:30pm</p>
+		<p class="text-lg">{receiver}</p>
+		<p class="text-sm text-zinc-400">Last seen: 8:02pm</p>
 	</div>
 
-	<!-- Chat Messages Section -->
-	<div class="h-[87%] flex justify-end flex-col px-2 py-1 gap-[0.4rem] pb-2">
+	<!-- Messages -->
+	<div class="h-[87%] overflow-y-auto px-2 py-1 gap-[0.4rem] pb-2" bind:this={chatWindow}>
 		{#each $messages as message}
-			<div class={`flex ${message.send ? 'justify-end' : 'justify-start'}`}>
+			<div class={`flex ${message.sender === username ? 'justify-end' : 'justify-start'}`}>
 				<div class="flex flex-row items-center gap-2">
-					<p
-						class={`bg-[#2a3546] inline-block px-2 py-1 rounded-lg ${message.send ? 'text-white' : 'text-black'}`}
+					<div
+						class={`flex flex-col w-full px-2 shadow-xl py-1 rounded-lg text-white 
+                        ${message.sender === username ? 'bg-[#3e4753]' : 'bg-sky-700'}`}
 					>
 						{message.message}
-					</p>
-					<!-- Display date and time on hover -->
-					<p transition:fade={{ duration: 200 }}>{message['d&t']}</p>
+						<div class="text-xs flex pl-8 justify-end w-full opacity-60">
+							{message['d&t'].split(',')[1]}
+						</div>
+					</div>
 				</div>
 			</div>
 		{/each}
+		{#if typingUser}
+			<p class="text-sm text-gray-400">{typingUser}</p>
+			<!-- Display typing indicator -->
+		{/if}
 	</div>
 
-	<!-- Input Section for sending messages -->
+	<!-- Input -->
 	<form class="h-[7.2%] flex flex-row justify-end" on:submit|preventDefault={sendMessage}>
 		<div class="w-[95%] flex justify-center items-center p-1">
 			<Input
 				type="text"
 				bind:value={newMessage}
+				on:input={handleTyping}
 				placeholder="Type a message"
 				class="rounded-md bg-slate-800 text-white"
 				color="blue"
@@ -88,7 +163,8 @@
 		</div>
 		<button class="w-[5%] p-1" type="submit">
 			<div
-				class="border-2 h-full w-auto border-black flex justify-center items-center transition-colors rounded-md hover:bg-[#208d77] text-black hover:text-white"
+				class="border-2 h-full w-auto border-black flex justify-center items-center
+                transition-colors rounded-md hover:bg-[#208d77] text-black hover:text-white"
 			>
 				<PaperPlaneOutline />
 			</div>
